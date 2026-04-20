@@ -1,7 +1,7 @@
 ---
 name: aem-doc-converter
 description: Use when developer has an existing Markdown file and wants to convert it to HTML (for copy-paste into Word for AEM Edge Delivery Services document authoring) or a Word .docx file. Triggers on: "convert to HTML", "convert to Word", "make this copy-paste ready", "convert this doc", "convert this markdown", "I want to paste this into Word".
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AEM Doc Converter
@@ -12,6 +12,11 @@ Zero AI tokens used — scripts run entirely on your machine.
 EDS block tables (Pull Quote, Metadata, Recommended Articles, Library Metadata, Columns)
 are detected and rendered with proper HTML table structure so they paste correctly into
 Word for document authoring.
+
+## Interaction Rule
+
+**Use `AskUserQuestion` at every decision point.** Never ask for freeform "yes/no" text.
+Each checkpoint must be a clickable prompt. Users always get "Other" automatically.
 
 ## Scripts
 
@@ -32,51 +37,114 @@ Install all: `pip3 install -r skills/aem/edge-delivery-services/aem-doc-converte
 **Step 1 — Detect input file**
 
 Check for `.md` files in the current working directory:
-- Exactly one `.md` file found → *"I found `<filename>.md` — using that as input. OK?"*
-- Multiple `.md` files found → list them and ask which one
-- No `.md` files found → *"What is the path to the Markdown file you want to convert?"*
+
+- **Exactly one** `.md` file found → present it by name and ask:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "I found <filename>.md — use this as the input?",
+    header: "Input file",
+    multiSelect: false,
+    options: [
+      { label: "Yes, use this file", description: "Convert <filename>.md" },
+      { label: "Different file", description: "I'll type the path to the file I want" }
+    ]
+  }]
+})
+```
+
+- **Multiple** `.md` files found → list them and ask the developer to pick one (use "Other"
+  to type a path not in the list).
+
+- **No** `.md` files → ask the developer for the file path as plain text.
 
 **Step 2 — Preview structure**
 
-Read the file and show:
-> "Found in `<filename>.md`:
+Read the file and show a summary in your message:
+> Found in `<filename>.md`:
 > - N headings (H1: [title], H2: [first two section names]...)
-> - EDS block tables detected: [list block names e.g. Pull Quote, Metadata]
+> - EDS block tables detected: [list block names or "none"]
 > - N sections total
->
-> Any sections to exclude before converting? (say 'no' to include all)"
+
+Then ask:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Any sections to exclude before converting?",
+    header: "Sections",
+    multiSelect: false,
+    options: [
+      { label: "Include everything", description: "Convert the full document" },
+      { label: "Exclude some sections", description: "I'll tell you which headings to skip" }
+    ]
+  }]
+})
+```
 
 ---
 
 ### MIDDLE
 
-**Step 3 — EDS block tables**
+**Step 3 — EDS block table styling** (only ask if EDS block tables were detected)
 
-If EDS block tables were detected:
-> "I found EDS block tables. Render them with EDS-aware styling (blue header row, proper
-> table structure for Word paste)? Recommended: Yes."
+```
+AskUserQuestion({
+  questions: [{
+    question: "Render EDS block tables with EDS-aware styling?",
+    header: "Block styling",
+    multiSelect: false,
+    options: [
+      { label: "Yes (recommended)", description: "Blue header row, proper table structure — pastes cleanly into Word" },
+      { label: "Plain tables", description: "Standard HTML table styling" }
+    ]
+  }]
+})
+```
 
 **Step 4 — Output format**
 
-> "Output format: HTML / Word doc (.docx) / Both?"
-
-If Word doc chosen:
-> "Note: `md-to-docx.py` uses python-docx locally — zero AI tokens.
-> HTML also pastes cleanly into Word if that works for your authoring workflow."
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which output format do you need?",
+    header: "Output format",
+    multiSelect: false,
+    options: [
+      { label: "HTML", description: "Standalone HTML — paste into Word for EDS authoring (recommended)" },
+      { label: "Word doc (.docx)", description: "Direct .docx via python-docx — zero AI tokens" },
+      { label: "Both", description: "Generate both .html and .docx" }
+    ]
+  }]
+})
+```
 
 ---
 
 ### END
 
-1. Ask: *"Output filename? (Default: `<same-stem>.html` / `<same-stem>.docx`)"*
+```
+AskUserQuestion({
+  questions: [{
+    question: "What should the output file be named?",
+    header: "Filename",
+    multiSelect: false,
+    options: [
+      { label: "Use default", description: "Same stem as input: <name>.html / <name>.docx" },
+      { label: "Custom name", description: "I'll type the output filename" }
+    ]
+  }]
+})
+```
 
-2. Run the script(s):
-   ```bash
-   # HTML
-   python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <input.md> <output.html>
+Run the script(s):
+```bash
+# HTML
+python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <input.md> <output.html>
 
-   # Word doc
-   python3 <path-to>/aem-doc-converter/scripts/md-to-docx.py <input.md> <output.docx>
-   ```
+# Word doc
+python3 <path-to>/aem-doc-converter/scripts/md-to-docx.py <input.md> <output.docx>
+```
 
-3. Confirm: *"✓ Done. Open `<output>` — copy and paste into your EDS Word document."*
+Confirm: *"✓ Done. Open `<output>` — copy and paste into your EDS Word document."*

@@ -1,7 +1,7 @@
 ---
 name: aem-training-materials
 description: Use when developer wants to create AEM Edge Delivery Services training content — hands-on lab exercises, workshop materials, architecture diagrams, or PPTX training decks. Triggers on: "create training", "hands-on lab", "workshop", "training deck", "lab exercise", "architecture diagram for this block". Auto-detects block folder context and suggests exercise structure from code complexity.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AEM Training Materials
@@ -9,6 +9,11 @@ version: 1.0.0
 Generate training lab exercises, Mermaid architecture diagrams, and PPTX decks for AEM
 Edge Delivery Services workshops. Follows the NYC Masterclass lab format. Code snippets
 are pulled from actual block code — never fabricated.
+
+## Interaction Rule
+
+**Use `AskUserQuestion` at every decision point.** Never ask for freeform "yes/no" text.
+Each checkpoint must be a clickable prompt. Users always get "Other" automatically.
 
 ## Lab Exercise Structure
 
@@ -89,13 +94,13 @@ Use `sequenceDiagram` for request/response flows (e.g., edge workers).
 
 - **< 50 lines, no async, no `classList.contains`** → single exercise
 - **50–150 lines OR has `classList.contains` checks** → split: Ex 1 (default) + Ex 2 (variations)
-- **150+ lines OR has `fetch(`, workers, or 3+ services** → suggest 2–3 exercises; confirm split with developer
+- **150+ lines OR has `fetch(`, workers, or 3+ services** → suggest 2–3 exercises; confirm split
 
 ## Guided Wizard
 
 ### START
 
-**Step 1 — Gather basics** (ask together)
+**Step 1 — Gather basics** (ask as plain text, not clickable — open-ended)
 
 > "1. What is the training topic and who is the audience? (developer / author / admin / mixed)
 > 2. Single exercise or full module? (full module = README overview + SETUP + multiple exercises)"
@@ -109,24 +114,41 @@ If YES: read JS + CSS and analyse:
 - Flag diagram candidates
 - Identify screenshot spots: DA.live authoring table creation, Sidekick preview/publish, visible browser output changes
 
-**Step 3 — Ask for outputs** (multi-select)
+**Step 3 — Select outputs**
 
-> "What outputs do you need?
-> A) MD lab exercise file(s)
-> B) Mermaid architecture diagram (embedded in MD)
-> C) PPTX training deck
-> Select all that apply."
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which outputs do you need for this training?",
+    header: "Outputs",
+    multiSelect: true,
+    options: [
+      { label: "MD lab exercise(s)", description: "Hands-on lab files in NYC Masterclass format" },
+      { label: "Mermaid diagram", description: "Architecture diagram embedded in the MD Background section" },
+      { label: "PPTX deck", description: "PowerPoint slide deck generated from the exercise content" }
+    ]
+  }]
+})
+```
 
-**Step 4 — Present structure proposal**
+**Step 4 — Confirm exercise structure**
 
-> "Based on the code, I suggest:
-> - Exercise 1: [Default pattern] (~X min)
-> - Exercise 2: [Variations/data pattern] (~X min)
-> Diagram candidate: [detected pattern]
->
-> Does this split work? Any changes?"
+Show the proposed split in your message (number of exercises, titles, estimated durations),
+then:
 
-Wait for confirmation before proceeding.
+```
+AskUserQuestion({
+  questions: [{
+    question: "Does this exercise structure work?",
+    header: "Structure",
+    multiSelect: false,
+    options: [
+      { label: "Yes, looks good", description: "Proceed with this split" },
+      { label: "Change the split", description: "I'll tell you how to restructure it" }
+    ]
+  }]
+})
+```
 
 ---
 
@@ -134,41 +156,186 @@ Wait for confirmation before proceeding.
 
 **For each exercise:**
 
-- **A** — Exercise title + learning objectives → confirm
-- **B** — Prerequisites (tools, branch pattern `<name>--<repo>--<org>.aem.page`, dev server) → confirm
-- **C** — Background section (Why this matters, How it works) → confirm or edit
-- **D** — Each step with real code snippet from block → confirm, reorder, or skip. Show one step at a time:
-  > "Step 2: Write the decorator. Here's the snippet from `cards.js`:
-  > ```javascript
-  > [actual code]
-  > ```
-  > Include this step?"
-- **E** — At DA.live authoring moments, Sidekick actions, or visible output changes:
-  > "📸 Screenshot suggestion: show the authored block table in DA.live before the code runs. Include this marker?"
-- **F** — Mermaid diagram (if candidate flagged): show draft → *"Include this in the Background section?"*
-- **G** — Verification checklist → confirm items
+**A — Title + objectives**
+
+Show the draft title and learning objectives, then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Do the title and learning objectives look right?",
+    header: "Objectives",
+    multiSelect: false,
+    options: [
+      { label: "Good, continue", description: "Move to prerequisites" },
+      { label: "Edit", description: "I'll tell you what to change" }
+    ]
+  }]
+})
+```
+
+**B — Prerequisites**
+
+Show the drafted prerequisites (tools, branch pattern `<name>--<repo>--<org>.aem.page`,
+dev server), then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Are the prerequisites correct for your environment?",
+    header: "Prerequisites",
+    multiSelect: false,
+    options: [
+      { label: "Correct, continue", description: "Use these prerequisites" },
+      { label: "Edit", description: "I'll update the tools or branch pattern" }
+    ]
+  }]
+})
+```
+
+**C — Background section**
+
+Show the Background (Why this matters, How it works, optional Mermaid diagram), then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Does the Background section look right?",
+    header: "Background",
+    multiSelect: false,
+    options: [
+      { label: "Good, continue", description: "Move to steps" },
+      { label: "Edit content", description: "I'll tell you what to change" },
+      { label: "Add/remove diagram", description: "Change whether a Mermaid diagram is included" }
+    ]
+  }]
+})
+```
+
+**D — Each step**
+
+Show one step at a time with the real code snippet from the block, then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Include this step in the exercise?",
+    header: "Step",
+    multiSelect: false,
+    options: [
+      { label: "Include it", description: "Add this step to the exercise" },
+      { label: "Edit it", description: "I'll tell you what to change" },
+      { label: "Skip it", description: "Remove this step" }
+    ]
+  }]
+})
+```
+
+**E — Screenshot markers**
+
+At DA.live authoring moments, Sidekick actions, or visible output changes, show the
+suggested marker, then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Include this screenshot suggestion marker?",
+    header: "Screenshot",
+    multiSelect: false,
+    options: [
+      { label: "Yes, include it", description: "Add 📸 marker at this point" },
+      { label: "Skip", description: "No screenshot marker here" }
+    ]
+  }]
+})
+```
+
+**F — Verification checklist**
+
+Show the drafted verification items, then:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Does the verification checklist cover the right outcomes?",
+    header: "Verification",
+    multiSelect: false,
+    options: [
+      { label: "Looks good", description: "Use this checklist" },
+      { label: "Edit items", description: "I'll add, remove, or change items" }
+    ]
+  }]
+})
+```
 
 **For PPTX (if selected):**
 
-- **H** — Proposed slide structure mapped from exercises → confirm
-- **I** — *"Adobe brand template path? (provide path, or press enter to use default layout)"*
-- **J** — Slide by slide content → confirm each before generating
+**G — Slide structure**
+
+Show the proposed slide outline mapped from the exercises, then:
+
+```
+AskUserQuestion({
+  questions: [
+    {
+      question: "Does the slide structure look right?",
+      header: "Slides",
+      multiSelect: false,
+      options: [
+        { label: "Yes, looks good", description: "Proceed with this outline" },
+        { label: "Edit structure", description: "I'll tell you what to change" }
+      ]
+    },
+    {
+      question: "Do you have an Adobe brand PowerPoint template?",
+      header: "PPTX template",
+      multiSelect: false,
+      options: [
+        { label: "Yes, I'll provide path", description: "Use my template file for brand-compliant slides" },
+        { label: "Use default layout", description: "Generate with built-in default styling" }
+      ]
+    }
+  ]
+})
+```
 
 ---
 
 ### END
 
-1. Ask: *"Filename base? (e.g., `eds-cards` → `eds-cards-ex1.training.md`, `eds-cards-ex2.training.md`, `eds-cards.pptx`)"* — remind: avoid `README.md`.
+```
+AskUserQuestion({
+  questions: [
+    {
+      question: "What should the filename base be?",
+      header: "Filename",
+      multiSelect: false,
+      options: [
+        { label: "Use default", description: "e.g. eds-cards → eds-cards-ex1.training.md, eds-cards.pptx" },
+        { label: "Custom base name", description: "I'll type the base name" }
+      ]
+    },
+    {
+      question: "Which MD output format do you need?",
+      header: "MD format",
+      multiSelect: false,
+      options: [
+        { label: "MD only", description: "Markdown lab file(s)" },
+        { label: "HTML only", description: "Run md-to-html.py — renders nicely in browser" },
+        { label: "Both", description: "Write .md then generate .html" }
+      ]
+    }
+  ]
+})
+```
 
-2. Ask: *"MD output format: MD only / HTML only / Both?"*
-
-3. Run scripts:
-   ```bash
-   # HTML
-   python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <output.md> <output.html>
-   # PPTX
-   python3 <path-to>/aem-doc-converter/scripts/md-to-pptx.py <output.md> <output.pptx> [--template <template.pptx>]
-   ```
+Run the appropriate scripts:
+```bash
+# HTML
+python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <output.md> <output.html>
+# PPTX
+python3 <path-to>/aem-doc-converter/scripts/md-to-pptx.py <output.md> <output.pptx> [--template <template.pptx>]
+```
 
 ## Notes
 

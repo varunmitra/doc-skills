@@ -1,7 +1,7 @@
 ---
 name: aem-blog-post
 description: Use when developer wants to write a Culture Tecture or re-think.adobe.com blog post about something they built or learned. Triggers on: "culture tecture", "AEM blog", "re-think blog", "write a blog post", "blog about what we built", "document what I built as a post". Scans conversation context to suggest topic automatically — no blank page.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AEM Blog Post
@@ -9,6 +9,11 @@ version: 1.0.0
 Generate a Culture Tecture / re-think blog post in AEM Edge Delivery Services format.
 Scans the current conversation to suggest a topic so the developer never starts from scratch.
 Output is authored MD (and optionally HTML) ready for EDS document authoring.
+
+## Interaction Rule
+
+**Use `AskUserQuestion` at every decision point.** Never ask for freeform "yes/no" text.
+Each checkpoint must be a clickable prompt. Users always get "Other" automatically.
 
 ## Blog Post Structure
 
@@ -89,73 +94,166 @@ Read the current conversation. Identify:
 - Data points, metrics, outcomes
 - Interesting decisions, tradeoffs, or failures
 
-**Step 2 — Suggest topic + angle**
+**Step 2 — Suggest topic + confirm**
 
-Present one blog angle in 2–3 sentences. Example:
-> "It looks like you built a multi-model AI review workflow using Claude + Codex.
-> Potential angle: *'Use one model to build, another to break — why you shouldn't trust a single AI's blind spots.'*
-> Does this resonate, or do you want a different angle?"
+Present the suggested blog angle (2–3 sentences) in your message, then:
 
-Wait for confirmation or redirection before proceeding.
+```
+AskUserQuestion({
+  questions: [{
+    question: "Does this topic angle work for your post?",
+    header: "Blog angle",
+    multiSelect: false,
+    options: [
+      { label: "Yes, this works", description: "Proceed with this angle and title direction" },
+      { label: "Different angle", description: "I'll describe what I want to write about instead" }
+    ]
+  }]
+})
+```
 
 ---
 
 ### MIDDLE — One section per turn
 
-**Step 3 — Fill context gaps**
+**Step 3 — Image tool**
+
+Ask early so image prompts can be woven in as sections are drafted:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which AI image tool will you use for the hero and section images?",
+    header: "Image tool",
+    multiSelect: false,
+    options: [
+      { label: "Adobe Firefly", description: "Descriptive style-focused prompts with --ar 16:9" },
+      { label: "Midjourney", description: "Keyword-dense prompts with --ar 16:9 --style raw --v 6" },
+      { label: "DALL-E", description: "Natural language scene descriptions" },
+      { label: "Skip images", description: "No image prompts — leave placeholders only" }
+    ]
+  }]
+})
+```
+
+**Step 4 — Fill context gaps**
 
 Ask only for what the conversation didn't cover:
 > "A few things I couldn't find — answer what you have:
-> 1. Any specific metrics or numbers? (e.g., '50% faster', '3 high-severity bugs found')
+> 1. Any specific metrics or numbers? (e.g., '50% faster', '3 bugs found')
 > 2. Any direct quotes to include?
 > 3. Any tool names or versions to reference specifically?"
 
-**Step 4 — Draft sections one at a time**
+**Step 5 — Draft sections one at a time**
 
-Draft each section and wait for confirmation before moving to the next:
+For each section (Context/Problem → body sections → Takeaways), draft the content in your
+message, generate an image prompt in the chosen tool's syntax if relevant, then:
 
-- 4a. Draft `## [Context/Problem]` section → *"Does this set the scene right?"*
-- 4b. Draft body section 1 (H2) → *"Good? Move to next section?"*
-- 4c–4e. Continue for each body section (3–5 total)
-- 4f. If a strong quote exists: offer Pull Quote block → include or skip
-- 4g. Draft `## Takeaways` as bullet list → confirm
+```
+AskUserQuestion({
+  questions: [{
+    question: "How does this section look?",
+    header: "Section draft",
+    multiSelect: false,
+    options: [
+      { label: "Good — next section", description: "Approve and move on" },
+      { label: "Edit this", description: "I'll tell you what to change" },
+      { label: "Skip section", description: "Remove this section from the post" }
+    ]
+  }]
+})
+```
 
-**Step 5 — Recommended Articles**
+After body sections, offer Pull Quote:
 
-> "Do you have 3 related articles for the Recommended Articles block? Paste the URLs or say 'skip' to leave placeholders."
+```
+AskUserQuestion({
+  questions: [{
+    question: "Include a Pull Quote block?",
+    header: "Pull Quote",
+    multiSelect: false,
+    options: [
+      { label: "Yes", description: "I'll provide the quote text" },
+      { label: "Skip", description: "No pull quote in this post" }
+    ]
+  }]
+})
+```
 
-**Step 6 — Metadata**
+**Step 6 — Recommended Articles**
 
-Confirm each field:
-> "Metadata to confirm:
-> - Description: [drafted]
-> - Title: [suggested]
-> - Author: [from context or ask]
-> - Publication Date: [today — confirm or change]
-> - Tags: AI, Blog, Learn, AEMPLA — any changes?"
+```
+AskUserQuestion({
+  questions: [{
+    question: "Do you have 3 related article URLs for the Recommended Articles block?",
+    header: "Related links",
+    multiSelect: false,
+    options: [
+      { label: "Yes, I'll paste them", description: "Provide the 3 URLs now" },
+      { label: "Use placeholders", description: "Leave placeholder URLs to fill in later" }
+    ]
+  }]
+})
+```
 
-**Step 7 — Image prompts**
+**Step 7 — Metadata**
 
-Ask once: *"Which AI image tool are you using? A) Adobe Firefly  B) Midjourney  C) DALL-E  D) Other"*
+Show the drafted metadata fields in your message, then:
 
-For each section that benefits from an image, generate a prompt in that tool's syntax:
-- **Firefly**: descriptive, style-focused, `--ar 16:9`
-- **Midjourney**: keyword-dense, `--ar 16:9 --style raw --v 6`
-- **DALL-E**: natural language scene description
-
-Mark each image placement in the doc as `![][imageN]` with the prompt as a comment below.
+```
+AskUserQuestion({
+  questions: [{
+    question: "Does the metadata look correct?",
+    header: "Metadata",
+    multiSelect: false,
+    options: [
+      { label: "Looks good", description: "Use as-is" },
+      { label: "Edit fields", description: "I'll tell you what to change" }
+    ]
+  }]
+})
+```
 
 ---
 
 ### END
 
-1. Ask: *"Output filename? (Default: `<post-slug>.blog.md`)"* — remind: avoid `README.md`.
+```
+AskUserQuestion({
+  questions: [
+    {
+      question: "What should the output file be named?",
+      header: "Filename",
+      multiSelect: false,
+      options: [
+        { label: "Use default", description: "<post-slug>.blog.md — safe to gitignore by pattern" },
+        { label: "Custom name", description: "I'll type the filename" }
+      ]
+    },
+    {
+      question: "Which output format do you need?",
+      header: "Output format",
+      multiSelect: false,
+      options: [
+        { label: "MD only", description: "Markdown file — edit freely before publishing" },
+        { label: "HTML only", description: "Run md-to-html.py — renders EDS blocks, paste into Word" },
+        { label: "Both", description: "Write .md then generate .html" },
+        { label: "Word doc (.docx)", description: "Token-intensive — HTML paste into Word is recommended instead" }
+      ]
+    }
+  ]
+})
+```
 
-2. Ask: *"Output format: MD only / HTML only / Both?"*
-   - **HTML / Both**: write `.md` then run:
-     ```bash
-     python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <output.md> <output.html>
-     ```
-   - If Word doc requested: *"Word doc is token-intensive. HTML pastes cleanly into Word for EDS authoring — want to use that instead?"*
+If Word doc is chosen, show a token warning before proceeding:
+> "Note: Generating Word doc uses AI tokens to reformat. HTML paste into Word is zero-token and works equally well for EDS authoring. Continuing anyway."
 
-3. Write the file(s).
+Run the appropriate script:
+```bash
+# HTML
+python3 <path-to>/aem-doc-converter/scripts/md-to-html.py <output.md> <output.html>
+# Word
+python3 <path-to>/aem-doc-converter/scripts/md-to-docx.py <output.md> <output.docx>
+```
+
+Write the file(s) and confirm.
